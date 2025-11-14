@@ -1,29 +1,40 @@
-import sys
 from PyQt6.QtWidgets import QApplication
-from login_window import AuthWindow
-from search_window import SearchWindow
+from user_interface.login_window import LoginWindow
+from user_interface.products_window import ProductsWindow
+import sys
 
-class AppController:
-    def __init__(self):
-        self.app = QApplication(sys.argv)
-        self.auth_window = AuthWindow()
-        self.search_window = None
-        
-        # Подключаем сигнал
-        self.auth_window.login_success.connect(self.show_search_window)
-        
-    def show_search_window(self, username):
-        # Скрываем окно авторизации
-        self.auth_window.hide()
-        
-        # Создаем и показываем окно поиска
-        self.search_window = SearchWindow(username)
-        self.search_window.show()
-        
-    def run(self):
-        self.auth_window.show()
-        return self.app.exec()
+class FakeAuthService:
+    """Примерная логика авторизации"""
+    def authenticate(self, login, password):
+        roles = {
+            "user": "user",
+            "manager": "manager",
+            "admin": "admin",
+        }
+
+        role = roles.get(login)
+        if role and password == "123":
+            return type("User", (), {"role": role, "name": login})()
+
+        return None
+
+
+def main():
+    app = QApplication(sys.argv)
+
+    auth = FakeAuthService()
+    login = LoginWindow(auth)
+
+    def on_login(user):
+        products = ProductsWindow(user)
+        products.show()
+        login.close()
+
+    login.login_success.connect(on_login)
+    login.show()
+
+    sys.exit(app.exec())
+
 
 if __name__ == "__main__":
-    controller = AppController()
-    sys.exit(controller.run())
+    main()
