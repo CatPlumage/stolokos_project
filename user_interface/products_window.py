@@ -1,83 +1,107 @@
-# products_window.py
-from PyQt6.QtWidgets import QMainWindow, QMessageBox
-from ui.ui_products import ProductsWindow  # твой класс из ui_products.py
+import os
+from PyQt6 import QtWidgets, QtGui, QtCore
+from crud.products import get_all_products
+from crud.references import get_all_categories, get_all_suppliers
 
-class ProductsWindowUI(QMainWindow):
-    def __init__(self, role: str, parent=None):
-        super().__init__(parent)
-        self.role = role
-        self.ui = ProductsWindow()
-        self.ui.setupUi(self)
 
-        # Настраиваем функционал в зависимости от роли
-        self.configure_role_permissions()
+def get_image_path(filename: str | None):
+    """
+    Возвращает абсолютный путь к изображению в папке images.
+    Если файла нет — возвращает None.
+    """
+    if not filename:
+        return None
 
-        # Подключаем кнопку "Назад"
-        self.ui.pushButton.clicked.connect(self.go_back)
+    # Путь к текущей папке (user_interface)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
 
-    def configure_role_permissions(self):
-        """
-        Настройка видимости и функционала кнопок в зависимости от роли.
-        """
-        if self.role in ("Неавторизованный", "Гость"):
-            # Только просмотр товаров
-            self.disable_advanced_features()
-        elif self.role == "Авторизированный клиент":
-            self.disable_advanced_features()
-            # Можно оставить кнопки для просмотра, если нужно
-        elif self.role == "Менеджер":
-            # Доступ к фильтрам, сортировке, поиску
-            self.enable_filters_sort_search()
-            self.disable_admin_crud()
-        elif self.role == "Администратор":
-            # Полный доступ
-            self.enable_filters_sort_search()
-            self.enable_admin_crud()
+    # Папка проекта
+    project_dir = os.path.dirname(base_dir)
+
+    # Путь к папке images
+    img_path = os.path.join(project_dir, "images", filename)
+
+    return img_path
+
+
+class ProductsWindow(QtWidgets.QMainWindow):
+    def __init__(self, user=None):
+        super().__init__()
+        self.user = user
+        self.setWindowTitle("Список товаров")
+        self.setMinimumSize(900, 600)
+        self.setWindowIcon(QtGui.QIcon("resources/logo.png"))
+
+        # --- Приветствие пользователя --- #
+        self.label_user = QtWidgets.QLabel(self)
+        self.label_user.move(700, 10)
+        self.label_user.setFixedWidth(200)
+        if user:
+            self.label_user.setText(f"{user.full_name} ({user.role.name})")
         else:
-            QMessageBox.warning(self, "Ошибка", f"Неизвестная роль: {self.role}")
+            self.label_user.setText("Гость")
 
-    def disable_advanced_features(self):
-        """
-        Скрываем/отключаем все кнопки CRUD, фильтры, сортировку, поиск.
-        """
-        self.ui.pushButton_5.setEnabled(False)  # Удалить
-        self.ui.pushButton_6.setEnabled(False)  # Сохранить
-        self.ui.pushButton_7.setEnabled(False)  # Удалить (2-й товар)
-        self.ui.pushButton_8.setEnabled(False)  # Сохранить (2-й товар)
-        self.ui.pushButton_9.setEnabled(False)  # Удалить (3-й товар)
-        self.ui.pushButton_10.setEnabled(False) # Сохранить (3-й товар)
-        self.ui.pushButton_11.setEnabled(False) # Добавить
-        self.ui.pushButton_12.setEnabled(False) # Фильтры
-        self.ui.pushButton_13.setEnabled(False) # Сортировка
-        self.ui.keySequenceEdit.setEnabled(False) # Поиск
+        # --- Таблица товаров --- #
+        self.table = QtWidgets.QTableWidget(self)
+        self.table.setGeometry(20, 50, 850, 500)
+        self.table.setColumnCount(10)
+        self.table.setHorizontalHeaderLabels([
+            "ID", "Наименование", "Категория", "Производитель",
+            "Поставщик", "Цена", "Количество", "Скидка",
+            "Описание", "Фото"
+        ])
+        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
 
-    def enable_filters_sort_search(self):
-        self.ui.pushButton_12.setEnabled(True)  # Фильтры
-        self.ui.pushButton_13.setEnabled(True)  # Сортировка
-        self.ui.keySequenceEdit.setEnabled(True) # Поиск
+        # Загружаем товары
+        self.load_products()
 
-    def enable_admin_crud(self):
-        self.ui.pushButton_5.setEnabled(True)  # Удалить
-        self.ui.pushButton_6.setEnabled(True)  # Сохранить
-        self.ui.pushButton_7.setEnabled(True)
-        self.ui.pushButton_8.setEnabled(True)
-        self.ui.pushButton_9.setEnabled(True)
-        self.ui.pushButton_10.setEnabled(True)
-        self.ui.pushButton_11.setEnabled(True)  # Добавить
+    def load_products(self):
+        products = get_all_products()
+        self.table.setRowCount(len(products))
 
-    def disable_admin_crud(self):
-        self.ui.pushButton_5.setEnabled(False)
-        self.ui.pushButton_6.setEnabled(False)
-        self.ui.pushButton_7.setEnabled(False)
-        self.ui.pushButton_8.setEnabled(False)
-        self.ui.pushButton_9.setEnabled(False)
-        self.ui.pushButton_10.setEnabled(False)
-        self.ui.pushButton_11.setEnabled(False)
+        for row, product in enumerate(products):
+            # --- Заполнение текстовых колонок --- #
+            self.table.setItem(row, 0, QtWidgets.QTableWidgetItem(str(product.id)))
+            self.table.setItem(row, 1, QtWidgets.QTableWidgetItem(product.name))
+            self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(product.category.name if product.category else ""))
+            self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(product.manufacturer.name if product.manufacturer else ""))
+            self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(product.supplier.name if product.supplier else ""))
+            self.table.setItem(row, 5, QtWidgets.QTableWidgetItem(str(product.price)))
+            self.table.setItem(row, 6, QtWidgets.QTableWidgetItem(str(product.quantity)))
+            self.table.setItem(row, 7, QtWidgets.QTableWidgetItem(f"{product.discount}%"))
+            self.table.setItem(row, 8, QtWidgets.QTableWidgetItem(product.description or ""))
 
-    def go_back(self):
-        """
-        Возврат к родительскому окну (например, LoginWindow)
-        """
-        self.close()
-        if self.parent():
-            self.parent().show()
+            # --- Фото товара --- #
+            label = QtWidgets.QLabel()
+            label.setFixedSize(80, 50)
+
+            # Получаем путь к изображению
+            img_path = get_image_path(product.image_path)
+
+            # Загружаем изображение
+            pixmap = QtGui.QPixmap(img_path) if img_path else QtGui.QPixmap("resources/picture.png")
+
+            # Если путь неверный — подставляем картинку по умолчанию
+            if pixmap.isNull():
+                pixmap = QtGui.QPixmap("resources/picture.png")
+
+            pixmap = pixmap.scaled(label.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+            label.setPixmap(pixmap)
+
+            self.table.setCellWidget(row, 9, label)
+
+            # --- Подсветка строк --- #
+
+            # Большая скидка
+            if product.discount and float(product.discount) > 15:
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item:
+                        item.setBackground(QtGui.QColor("#2E8B57"))
+
+            # Нет в наличии
+            if product.quantity == 0:
+                for col in range(self.table.columnCount()):
+                    item = self.table.item(row, col)
+                    if item:
+                        item.setBackground(QtGui.QColor("#ADD8E6"))
