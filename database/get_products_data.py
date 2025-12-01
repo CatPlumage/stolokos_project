@@ -1,10 +1,10 @@
 import pandas as pd
-from db_init import SessionLocal
-from models import Product, Category, Manufacturer, Supplier
+from database.db_init import SessionLocal
+from database.models import Product, Category, Manufacturer, Supplier
 
 session = SessionLocal()
 
-excel_file = r"C:\Users\posun\Desktop\проект по стоколос\excel\Tovar.xlsx"
+excel_file = r"E:\CatPlumage\School\PROJECT\excel\Tovar.xlsx"
 df_product = pd.read_excel(excel_file)
 
 try:

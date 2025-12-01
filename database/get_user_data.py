@@ -1,10 +1,10 @@
-from models import User, Role
+from database.models import User, Role
 import pandas as pd
-from db_init import SessionLocal
+from database.db_init import SessionLocal
 
 session = SessionLocal()
 
-df_users = pd.read_excel(r"C:\Users\posun\Desktop\проект по стоколос\excel\user_import.xlsx")
+df_users = pd.read_excel(r"E:\CatPlumage\School\PROJECT\excel\user_import.xlsx")
 
 try:
     for _, row in df_users.iterrows():

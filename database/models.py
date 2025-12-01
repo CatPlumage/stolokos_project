@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from sqlalchemy import String, Text, Integer, Numeric, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from .db_init import Base
+from database.db_init import Base
 
 
 # --- Роли и пользователи ---

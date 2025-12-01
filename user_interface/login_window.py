@@ -1,54 +1,42 @@
-from PyQt6 import QtWidgets, QtGui
-from user_interface.products_window import ProductsWindow
-from crud.users import get_user_by_login, get_all_roles
+import os
+from PyQt6 import QtWidgets
+from ui.ui_login import Ui_LoginWindow
+from crud.users import get_user_by_login
 
 class LoginWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Авторизация")
-        self.setFixedSize(400, 250)
-        self.setWindowIcon(QtGui.QIcon("images/Icon.png"))
+        self.ui = Ui_LoginWindow()
+        self.ui.setupUi(self)
 
-        # --- Виджеты --- #
-        self.label_login = QtWidgets.QLabel("Логин:", self)
-        self.label_login.move(50, 50)
-        self.input_login = QtWidgets.QLineEdit(self)
-        self.input_login.move(150, 50)
-        self.input_login.setFixedWidth(200)
+        self.ui.btn_login.clicked.connect(self.handle_login)
+        self.ui.btn_guest.clicked.connect(self.handle_guest)
 
-        self.label_password = QtWidgets.QLabel("Пароль:", self)
-        self.label_password.move(50, 100)
-        self.input_password = QtWidgets.QLineEdit(self)
-        self.input_password.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
-        self.input_password.move(150, 100)
-        self.input_password.setFixedWidth(200)
+    def handle_login(self):
+        login = self.ui.input_login.text().strip()
+        password = self.ui.input_password.text().strip()
 
-        self.button_login = QtWidgets.QPushButton("Войти", self)
-        self.button_login.move(150, 150)
-        self.button_login.clicked.connect(self.login)
+        if not login or not password:
+            QtWidgets.QMessageBox.warning(self, "Ошибка", "Введите логин и пароль")
+            return
 
-        self.button_guest = QtWidgets.QPushButton("Войти как гость", self)
-        self.button_guest.move(150, 200)
-        self.button_guest.clicked.connect(self.login_as_guest)
+        user = get_user_by_login(login)
+        if user is None:
+            QtWidgets.QMessageBox.warning(self, "Ошибка", "Пользователь не найден")
+            return
 
-        self.current_user = None
+        # НЕ хранит хеш — в учебном проекте допустимо; в проде — храните хеши.
+        if user.password != password:
+            QtWidgets.QMessageBox.warning(self, "Ошибка", "Неверный пароль")
+            return
 
-    def login(self):
-        login_text = self.input_login.text().strip()
-        password_text = self.input_password.text().strip()
+        self.open_products_window(user)
 
-        user = get_user_by_login(login_text)
-        if user and user.password == password_text:
-            self.current_user = user
-            self.open_products_window()
-        else:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Неверный логин или пароль")
+    def handle_guest(self):
+        self.open_products_window(None)
 
-    def login_as_guest(self):
-        self.current_user = None
-        self.open_products_window()
-
-    def open_products_window(self):
-        self.products_window = ProductsWindow(user=self.current_user)
-        self.products_window.show()
+    def open_products_window(self, user):
+        from user_interface.main_window import MainWindow
+        self.main_window = MainWindow(user=user)
+        self.main_window.show()
         self.close()

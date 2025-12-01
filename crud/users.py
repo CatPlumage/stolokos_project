@@ -1,45 +1,50 @@
-from typing import Optional
-from sqlalchemy.orm import Session
-from database.models import User, Role
+from typing import Optional, List
+from sqlalchemy.orm import Session, joinedload
 from database.db_init import SessionLocal
+from database.models import User, Role
+from typing import Optional, Dict
 
-# --- Пользователи --- #
 
-def get_user_by_id(user_id: int, db: Session = SessionLocal()) -> Optional[User]:
-    return db.query(User).filter(User.id == user_id).first()
+def get_user_by_id(user_id:int, db:Session = None)->Optional[User]:
+    db = db or SessionLocal()
+    u = db.query(User).options(joinedload(User.role)).filter(User.id==user_id).first()
+    db.close()
+    return u
 
-def get_user_by_login(login: str, db: Session = SessionLocal()) -> Optional[User]:
-    return db.query(User).filter(User.login == login).first()
+ROLE_MAP = {
+    2: "administrator",
+    3: "manager",
+    4: "client"
+}
 
-def create_user(full_name: str, login: str, password: str, role_id: int, db: Session = SessionLocal()) -> User:
+def get_user_by_login(login: str, db: Session = None) -> Optional[User]:
+    """
+    Возвращает объект User с заранее подгруженной ролью.
+    Это позволяет безопасно обращаться к user.role без ошибок DetachedInstanceError.
+    """
+    own_session = False
+    if db is None:
+        db = SessionLocal()
+        own_session = True
+
+    try:
+        user = db.query(User).options(joinedload(User.role)) \
+                 .filter(User.login == login).first()
+        return user
+    finally:
+        if own_session:
+            db.close()
+def create_user(full_name:str, login:str, password:str, role_id:int, db:Session=None)->User:
+    db = db or SessionLocal()
     user = User(full_name=full_name, login=login, password=password, role_id=role_id)
     db.add(user)
     db.commit()
     db.refresh(user)
+    db.close()
     return user
 
-def update_user(user_id: int, **kwargs) -> Optional[User]:
-    db = SessionLocal()
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        return None
-    for key, value in kwargs.items():
-        setattr(user, key, value)
-    db.commit()
-    db.refresh(user)
-    return user
-
-def delete_user(user_id: int):
-    db = SessionLocal()
-    user = db.query(User).filter(User.id == user_id).first()
-    if user:
-        db.delete(user)
-        db.commit()
-
-# --- Роли --- #
-
-def get_role_by_name(name: str, db: Session = SessionLocal()) -> Optional[Role]:
-    return db.query(Role).filter(Role.name == name).first()
-
-def get_all_roles(db: Session = SessionLocal()):
-    return db.query(Role).all()
+def get_all_roles(db:Session=None):
+    db = db or SessionLocal()
+    roles = db.query(Role).all()
+    db.close()
+    return roles

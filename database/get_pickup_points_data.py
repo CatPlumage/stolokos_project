@@ -1,11 +1,11 @@
 import pandas as pd
-from db_init import SessionLocal
-import models  # PickupPoint
+from database.db_init import SessionLocal
+from database.models import PickupPoint # PickupPoint
 
 session = SessionLocal()
 
 # Загружаем Excel, header=None так как нет заголовка
-pickup_file = r"C:\Users\posun\Desktop\проект по стоколос\excel\Пункты выдачи_import.xlsx"
+pickup_file = r"E:\CatPlumage\School\PROJECT\excel\Пункты выдачи_import.xlsx"
 df_pickup = pd.read_excel(pickup_file, header=None, usecols="A")  # только столбец A
 
 try:
@@ -24,14 +24,14 @@ try:
         full_address = ", ".join(parts[1:]) if len(parts) > 1 else full_text
 
         # Проверка на дубликаты
-        pickup = session.query(models.PickupPoint).filter(
-            (models.PickupPoint.code == code) | (models.PickupPoint.full_address == full_address)
+        pickup = session.query(PickupPoint).filter(
+            (PickupPoint.code == code) | (PickupPoint.full_address == full_address)
         ).first()
         if pickup:
             continue
 
         # Создаём запись
-        pickup_point = models.PickupPoint(
+        pickup_point = PickupPoint(
             code=code,
             city=city,
             street=street,
@@ -45,3 +45,5 @@ try:
 
 except Exception as e:
     session.rollback()
+    print("Ошибка:", e)
+    raise

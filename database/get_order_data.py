@@ -1,8 +1,8 @@
 import pandas as pd
 from sqlalchemy import create_engine
 from datetime import datetime
-from models import Product, PickupPoint, Order, OrderDetail, User
-from db_init import SessionLocal
+from database.models import Product, PickupPoint, Order, OrderDetail, User
+from database.db_init import SessionLocal
 
 def parse_date_safe(date_str):
     """Безопасное преобразование даты из Excel."""
@@ -94,4 +94,4 @@ def import_orders_from_excel(file_path):
         session.close()
 
 if __name__ == "__main__":
-    import_orders_from_excel(r"C:\Users\posun\Desktop\проект по стоколос\excel\Заказ_import.xlsx")
+    import_orders_from_excel(r"E:\CatPlumage\School\PROJECT\excel\Заказ_import.xlsx")
