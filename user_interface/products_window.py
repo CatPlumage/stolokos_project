@@ -17,8 +17,9 @@ class ProductsWindow(QtWidgets.QMainWindow):
         super().__init__()
         self.ui = Ui_ProductsWindow()
         self.ui.setupUi(self)
+        self.setFixedSize(self.size())
         self.user = user
-        self.parent_main = parent_main  # ← ссылка на MainWindow
+        self.parent_main = parent_main
         # current filtered list
         self._products_cache = []
         self._edit_window = None  # to prevent opening multiple edit windows
@@ -38,6 +39,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.ui.btn_add.setVisible(is_admin)
         self.ui.btn_edit.setVisible(is_admin)
         self.ui.btn_delete.setVisible(is_admin)
+        self.ui.btn_orders.setVisible(is_manager or is_admin)
 
         # Лейбл пользователя
         if user:
@@ -52,7 +54,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
             self.ui.label_user.setText("Гость")
 
         # Connect signals
-        self.ui.btn_back.clicked.connect(self.go_back)
+        self.ui.btn_back.clicked.connect(self.logout)
         self.ui.search_input.textChanged.connect(self.apply_filters)
         self.ui.supplier_filter.currentTextChanged.connect(self.apply_filters)
         self.ui.sort_box.currentTextChanged.connect(self.apply_filters)
@@ -166,7 +168,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
                 # Цена со скидкой — чёрная, обычная
                 final_label = QtWidgets.QLabel(f"{final_price:.2f}")
                 final_label.setFont(QtGui.QFont("Times New Roman", 8))
-                final_label.setStyleSheet("color: black;")  # Явно задаём чёрный цвет
+                final_label.setStyleSheet("color: black;")
                 final_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
 
                 # Компоновка
@@ -180,16 +182,16 @@ class ProductsWindow(QtWidgets.QMainWindow):
                 container.setLayout(layout)
 
                 # Убираем фон у контейнера — фон строки будет задан через QTableWidgetItem
-                container.setAutoFillBackground(False)  # ← ВАЖНО!
+                container.setAutoFillBackground(False)
 
                 table.setCellWidget(row, 6, container)
             else:
                 # Нет скидки — просто обычная цена
                 price_label = QtWidgets.QLabel(f"{base_price:.2f}")
                 price_label.setFont(QtGui.QFont("Times New Roman", 8))
-                price_label.setStyleSheet("color: black;")  # Явно чёрный цвет
+                price_label.setStyleSheet("color: black;")
                 price_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
-                price_label.setAutoFillBackground(False)  # Без фона
+                price_label.setAutoFillBackground(False)
 
                 table.setCellWidget(row, 6, price_label)
 
@@ -297,12 +299,8 @@ class ProductsWindow(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.information(self, "Успех", "Товар удалён")
         self.load_products()
 
-    def go_back(self):
+    def logout(self):
         self.close()
-        if self.parent_main:
-            self.parent_main.show()
-        else:
-            # fallback — открываем MainWindow заново
-            from user_interface.main_window import MainWindow
-            self.main_win = MainWindow(user=self.user)
-            self.main_win.show()
+        from user_interface.login_window import LoginWindow
+        self.login_window = LoginWindow()
+        self.login_window.show()
