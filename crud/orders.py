@@ -3,17 +3,42 @@ from sqlalchemy.orm import Session
 from database.db_init import SessionLocal
 from database.models import Order, OrderDetail
 
-def get_order_by_id(order_id:int, db:Session=None)->Optional[Order]:
-    db = db or SessionLocal()
-    o = db.query(Order).filter(Order.id==order_id).first()
-    db.close()
-    return o
+from typing import List, Optional
+from sqlalchemy.orm import Session, joinedload
+from database.db_init import SessionLocal
+from database.models import Order, OrderDetail
 
-def get_all_orders(db:Session=None)->List[Order]:
+def get_order_by_id(order_id: int, db: Session = None) -> Optional[Order]:
     db = db or SessionLocal()
-    lst = db.query(Order).all()
-    db.close()
-    return lst
+    try:
+        o = db.query(Order)\
+            .options(
+                joinedload(Order.user),
+                joinedload(Order.pickup_point),
+                joinedload(Order.status),
+                joinedload(Order.details).joinedload(OrderDetail.product)
+            )\
+            .filter(Order.id == order_id)\
+            .first()
+        return o
+    finally:
+        db.close()
+
+def get_all_orders(db: Session = None) -> List[Order]:
+    db = db or SessionLocal()
+    try:
+        orders = db.query(Order)\
+            .options(
+                joinedload(Order.user),
+                joinedload(Order.pickup_point),
+                joinedload(Order.status),
+                joinedload(Order.details).joinedload(OrderDetail.product)
+            )\
+            .order_by(Order.order_date.desc())\
+            .all()
+        return orders
+    finally:
+        db.close()
 
 def create_order(user_id:int, pickup_point_id:int=None, status_id:int=None,
                  delivery_date=None, pickup_code:str=None, db:Session=None)->Order:

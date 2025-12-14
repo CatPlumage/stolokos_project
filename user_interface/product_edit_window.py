@@ -57,6 +57,26 @@ class ProductEditWindow(QtWidgets.QDialog):
             self.reject()
             return
         self.ui.input_name.setText(p.name)
+        
+        if p.category and hasattr(p.category, 'id'):
+            idx = self.ui.cmb_category.findData(p.category.id)
+            if idx != -1:
+                self.ui.cmb_category.setCurrentIndex(idx)
+        
+        if p.manufacturer and hasattr(p.manufacturer, 'id'):
+            idx = self.ui.cmb_manufacturer.findData(p.manufacturer.id)
+            if idx != -1:
+                self.ui.cmb_manufacturer.setCurrentIndex(idx)
+        
+        if p.supplier and hasattr(p.supplier, 'id'):
+            idx = self.ui.cmb_supplier.findData(p.supplier.id)
+            if idx != -1:
+                self.ui.cmb_supplier.setCurrentIndex(idx)
+        if not p:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Товар не найден")
+            self.reject()
+            return
+        self.ui.input_name.setText(p.name)
         if p.category:
             idx = self.ui.cmb_category.findData(p.category.id)
             if idx != -1:

@@ -1,14 +1,17 @@
+# login_window.py
 import os
-from PyQt6 import QtWidgets
+import sys
+from PyQt6 import QtWidgets, QtCore
 from ui.ui_login import Ui_LoginWindow
 from crud.users import get_user_by_login
 
 class LoginWindow(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, parent_app=None):
         super().__init__()
         self.ui = Ui_LoginWindow()
         self.ui.setupUi(self)
         self.setFixedSize(self.size())
+        self.parent_app = parent_app
         self.ui.btn_login.clicked.connect(self.handle_login)
         self.ui.btn_guest.clicked.connect(self.handle_guest)
 
@@ -32,6 +35,10 @@ class LoginWindow(QtWidgets.QMainWindow):
 
     def open_products_window(self, user):
         from user_interface.products_window import ProductsWindow
-        self.products_window = ProductsWindow(user=user)
+        
+        # Создаем окно товаров
+        self.products_window = ProductsWindow(user=user, parent_login=self)
         self.products_window.show()
-        self.close()
+        
+        # Скрываем окно входа
+        self.hide()

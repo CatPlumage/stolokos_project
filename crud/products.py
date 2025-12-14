@@ -3,11 +3,20 @@ from sqlalchemy.orm import Session, joinedload
 from database.db_init import SessionLocal
 from database.models import Product
 
-def get_product_by_id(product_id:int, db:Session=None)->Optional[Product]:
+def get_product_by_id(product_id: int, db: Session = None) -> Optional[Product]:
     db = db or SessionLocal()
-    p = db.query(Product).filter(Product.id==product_id).first()
-    db.close()
-    return p
+    try:
+        p = db.query(Product)\
+            .options(
+                joinedload(Product.category),
+                joinedload(Product.supplier),
+                joinedload(Product.manufacturer)
+            )\
+            .filter(Product.id == product_id)\
+            .first()
+        return p
+    finally:
+        db.close()
 
 def get_all_products(db: Session = None):
     db = db or SessionLocal()
