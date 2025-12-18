@@ -19,14 +19,14 @@ class LoginWindow(QtWidgets.QMainWindow):
         login = self.ui.input_login.text().strip()
         password = self.ui.input_password.text().strip()
         if not login or not password:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Введите логин и пароль")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Введите логин и пароль")
             return
         user = get_user_by_login(login)
         if user is None:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Пользователь не найден")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Пользователь не найден")
             return
         if user.password != password:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Неверный пароль")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Неверный пароль")
             return
         self.open_products_window(user)
 

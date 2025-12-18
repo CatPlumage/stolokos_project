@@ -24,6 +24,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.parent_login = parent_login  # Ссылка на окно входа для возврата
         self._products_cache = []
         self._edit_window = None
+        self._selected_card = None  # Для хранения выбранной карточки
         
         # Setup UI according to role
         role_name = user.role.name if user and user.role else "guest"
@@ -57,10 +58,6 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.ui.btn_edit.clicked.connect(self.handle_edit)
         self.ui.btn_delete.clicked.connect(self.handle_delete)
         self.ui.btn_orders.clicked.connect(self.open_orders_window)
-        
-        # УДАЛЕНО: self.ui.table.cellDoubleClicked.connect(self.on_table_double_click)
-        # Вместо этого отслеживаем выбор строки для активации кнопок
-        self.ui.table.itemSelectionChanged.connect(self.on_selection_changed)
 
         # Fill supplier combo
         self._fill_suppliers()
@@ -72,7 +69,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("Каталог товаров")
         
         # Инициализируем состояние кнопок редактирования/удаления
-        self.on_selection_changed()
+        self.update_buttons_state()
 
     def _fill_suppliers(self):
         self.ui.supplier_filter.clear()
@@ -91,7 +88,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         supplier = self.ui.supplier_filter.currentText() if self.ui.supplier_filter.isVisible() else "Все поставщики"
         sort_sel = self.ui.sort_box.currentText() if self.ui.sort_box.isVisible() else "Нет сортировки"
         if not self._products_cache:
-            self.ui.table.setRowCount(0)
+            self.clear_cards()
             return
 
         filtered = []
@@ -134,135 +131,239 @@ class ProductsWindow(QtWidgets.QMainWindow):
 
         self.display_products(filtered)
 
+    def clear_cards(self):
+        # Удаляем все карточки
+        while self.ui.cards_layout.count():
+            item = self.ui.cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._selected_card = None
+        self.update_buttons_state()
+
     def display_products(self, products):
-        table = self.ui.table
-        table.clearContents()
-        table.setRowCount(len(products))
+        self.clear_cards()
+        
+        if not products:
+            # Показываем сообщение, если товаров нет
+            no_products_label = QtWidgets.QLabel("Товары не найдены")
+            no_products_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            no_products_label.setStyleSheet("font-size: 14pt; color: #666666; padding: 50px;")
+            self.ui.cards_layout.addWidget(no_products_label)
+            return
+        
+        for p in products:
+            card = self.create_product_card(p)
+            self.ui.cards_layout.addWidget(card)
 
-        for row, p in enumerate(products):
-            # ID column (hidden in UI but we need it)
-            id_item = QtWidgets.QTableWidgetItem(str(p.id))
-            id_item.setFlags(id_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)  # Делаем нередактируемым
-            table.setItem(row, 0, id_item)
-            
-            # Name, Category, Description, Manufacturer, Supplier
-            name_item = QtWidgets.QTableWidgetItem(p.name)
-            name_item.setFlags(name_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 1, name_item)
-            
-            category_name = p.category.name if (p.category and hasattr(p.category, 'name')) else ""
-            category_item = QtWidgets.QTableWidgetItem(category_name)
-            category_item.setFlags(category_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 2, category_item)
-            
-            desc_item = QtWidgets.QTableWidgetItem(p.description or "")
-            desc_item.setFlags(desc_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 3, desc_item)
-            
-            manuf_item = QtWidgets.QTableWidgetItem(p.manufacturer.name if p.manufacturer else "")
-            manuf_item.setFlags(manuf_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 4, manuf_item)
-            
-            supp_item = QtWidgets.QTableWidgetItem(p.supplier.name if p.supplier else "")
-            supp_item.setFlags(supp_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 5, supp_item)
-
-            # Price display with discount
-            base_price = float(p.price) if p.price else 0.00
-            discount = float(p.discount) if p.discount else 0.0
-
-            # Определяем фон строки
-            bg_color = None
-            if p.discount and discount > 15:
-                bg_color = QtGui.QColor("#2E8B57")
-            elif (p.quantity or 0) == 0:
-                bg_color = QtGui.QColor("#ADD8E6")
-
-            if discount > 0:
-                final_price = base_price * (1 - discount / 100)
-
-                # Оригинальная цена — красная, зачёркнутая
-                original_label = QtWidgets.QLabel(f"{base_price:.2f}")
-                original_font = QtGui.QFont("Times New Roman", 8)
-                original_font.setStrikeOut(True)
-                original_label.setFont(original_font)
-                original_label.setStyleSheet("color: red;")
-                original_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
-
-                # Цена со скидкой — чёрная, обычная
-                final_label = QtWidgets.QLabel(f"{final_price:.2f}")
-                final_label.setFont(QtGui.QFont("Times New Roman", 8))
-                final_label.setStyleSheet("color: black;")
-                final_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
-
-                # Компоновка
-                layout = QtWidgets.QHBoxLayout()
-                layout.setContentsMargins(2, 0, 2, 0)
-                layout.addWidget(original_label)
-                layout.addWidget(final_label)
-                layout.addStretch()
-
-                container = QtWidgets.QWidget()
-                container.setLayout(layout)
-                container.setAutoFillBackground(False)
-
-                table.setCellWidget(row, 6, container)
+    # user_interface/products_window.py (обновленный метод create_product_card)
+    def create_product_card(self, product):
+        """Создает карточку товара с фото слева и информацией справа"""
+        card_widget = QtWidgets.QWidget()
+        card_widget.setObjectName("card_widget")
+        card_widget.setMinimumHeight(140)
+        card_widget.setMaximumHeight(140)
+        card_widget.setProperty("product_id", product.id)  # Сохраняем ID товара
+        card_widget.setProperty("original_style", "")  # Для хранения оригинального стиля
+        
+        # Определяем оригинальный фон карточки
+        original_bg_color = None
+        if product.discount and float(product.discount) > 15:
+            original_bg_color = "#2E8B57"  # Зеленый для большой скидки
+        elif (product.quantity or 0) == 0:
+            original_bg_color = "#ADD8E6"  # Голубой для нулевого количества
+        else:
+            original_bg_color = "#FFFFFF"  # Белый для остальных
+        
+        # Сохраняем оригинальный стиль в свойстве
+        original_style = f"""
+            background-color: {original_bg_color};
+            border: 1px solid #FFFFFF;
+            border-radius: 8px;
+        """
+        card_widget.setProperty("original_style", original_style)
+        card_widget.setStyleSheet(original_style)
+        
+        # Основной layout карточки
+        main_layout = QtWidgets.QHBoxLayout(card_widget)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(15)
+        
+        # Левая часть - фото
+        photo_frame = QtWidgets.QFrame()
+        photo_frame.setFixedSize(120, 100)
+        photo_frame.setStyleSheet("border: 1px solid #FFFFFF; background-color: white;")
+        
+        photo_layout = QtWidgets.QVBoxLayout(photo_frame)
+        photo_layout.setContentsMargins(2, 2, 2, 2)
+        photo_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        
+        # Загружаем фото
+        photo_label = QtWidgets.QLabel()
+        photo_label.setFixedSize(116, 96)
+        photo_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        
+        img_path = None
+        if product.image_path:
+            candidate = images_full_path(product.image_path)
+            if candidate and os.path.exists(candidate):
+                img_path = candidate
+        
+        # fallback: всегда использовать заглушку images/Icon.png
+        if not img_path:
+            placeholder = os.path.join(PROJECT_DIR, "images", "Icon.JPG")
+            img_path = placeholder if os.path.exists(placeholder) else None
+        
+        if img_path:
+            pix = QtGui.QPixmap(img_path)
+            if not pix.isNull():
+                scaled_pix = pix.scaled(photo_label.size(), 
+                                    QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                                    QtCore.Qt.TransformationMode.SmoothTransformation)
+                photo_label.setPixmap(scaled_pix)
             else:
-                # Нет скидки — просто обычная цена
-                price_label = QtWidgets.QLabel(f"{base_price:.2f}")
-                price_label.setFont(QtGui.QFont("Times New Roman", 8))
-                price_label.setStyleSheet("color: black;")
-                price_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
-                price_label.setAutoFillBackground(False)
+                # Если изображение не загрузилось, показываем текст
+                photo_label.setText("🖼️ Нет фото")
+                photo_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        
+        photo_layout.addWidget(photo_label)
+        
+        # Правая часть - информация
+        info_widget = QtWidgets.QWidget()
+        info_layout = QtWidgets.QVBoxLayout(info_widget)
+        info_layout.setContentsMargins(0, 0, 0, 0)
+        info_layout.setSpacing(5)
+        
+        # Название товара
+        name_label = QtWidgets.QLabel(f"🏷️ {product.name or 'Без названия'}")
+        name_label.setStyleSheet("font-weight: bold; font-size: 11pt;")
+        info_layout.addWidget(name_label)
+        
+        # Основная информация в две колонки
+        details_widget = QtWidgets.QWidget()
+        details_layout = QtWidgets.QHBoxLayout(details_widget)
+        details_layout.setContentsMargins(0, 0, 0, 0)
+        details_layout.setSpacing(20)
+        
+        # Левая колонка с деталями
+        left_details = QtWidgets.QVBoxLayout()
+        left_details.setSpacing(3)
+        
+        # Категория
+        if product.category and hasattr(product.category, 'name'):
+            category_label = QtWidgets.QLabel(f"📂 {product.category.name}")
+            left_details.addWidget(category_label)
+        
+        # Производитель
+        if product.manufacturer:
+            manufacturer_label = QtWidgets.QLabel(f"🏭 {product.manufacturer.name}")
+            left_details.addWidget(manufacturer_label)
+        
+        # Поставщик
+        if product.supplier:
+            supplier_label = QtWidgets.QLabel(f"🚚 {product.supplier.name}")
+            left_details.addWidget(supplier_label)
+        
+        details_layout.addLayout(left_details)
+        
+        # Правая колонка с ценой и количеством
+        right_details = QtWidgets.QVBoxLayout()
+        right_details.setSpacing(3)
+        
+        # Цена
+        base_price = float(product.price) if product.price else 0.00
+        discount = float(product.discount) if product.discount else 0.0
+        
+        if discount > 0:
+            final_price = base_price * (1 - discount / 100)
+            price_text = f"""
+                <div style='font-size: 8pt; color: #666666;'>
+                    💰 Цена:
+                </div>
+                <div style='text-decoration: line-through; color: red; font-size: 8pt;'>
+                    {base_price:.2f} ₽
+                </div>
+                <div style='color: black; font-size: 10pt; font-weight: bold;'>
+                    {final_price:.2f} ₽
+                </div>
+            """
+        else:
+            price_text = f"""
+                <div style='font-size: 8pt; color: #666666;'>
+                    💰 Цена:
+                </div>
+                <div style='font-size: 10pt; font-weight: bold;'>
+                    {base_price:.2f} ₽
+                </div>
+            """
+        
+        price_label = QtWidgets.QLabel(price_text)
+        price_label.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        right_details.addWidget(price_label)
+        
+        # Скидка
+        if discount > 0:
+            discount_color = "#FF0000"  # Красный для скидки
+            if discount > 15:
+                discount_color = "#2E8B57"  # Зеленый для большой скидки
+            discount_label = QtWidgets.QLabel(f"🎯 {discount:.1f}%")
+            discount_label.setStyleSheet(f"color: {discount_color}; font-weight: bold;")
+            right_details.addWidget(discount_label)
+        
+        # Количество
+        quantity = product.quantity or 0
+        quantity_emoji = "📦"
+        if quantity == 0:
+            quantity_emoji = "⛔"
+            quantity_label = QtWidgets.QLabel(f"{quantity_emoji} {quantity}")
+            quantity_label.setStyleSheet("color: #0000FF; font-weight: bold;")
+        else:
+            quantity_label = QtWidgets.QLabel(f"{quantity_emoji} {quantity}")
+            quantity_label.setStyleSheet("color: #2E8B57; font-weight: bold;")
+        
+        right_details.addWidget(quantity_label)
+        
+        details_layout.addLayout(right_details)
+        info_layout.addWidget(details_widget)
+        
+        # Описание (если есть)
+        if product.description:
+            description_label = QtWidgets.QLabel(f"📝 {product.description[:100] + '...' if len(product.description) > 100 else product.description}")
+            description_label.setStyleSheet("color: #666666; font-size: 8pt;")
+            description_label.setWordWrap(True)
+            info_layout.addWidget(description_label)
+        
+        info_layout.addStretch()
+        
+        # Добавляем части в основную карточку
+        main_layout.addWidget(photo_frame)
+        main_layout.addWidget(info_widget)
+        
+        # Событие клика для выбора карточки
+        card_widget.mousePressEvent = lambda e, card=card_widget: self.select_card(card)
+        
+        return card_widget
 
-                table.setCellWidget(row, 6, price_label)
+    def select_card(self, card):
+        """Выделяет карточку (меняет фон на акцентный) и снимает выделение с других"""
+        # Снимаем выделение с предыдущей карточки (восстанавливаем оригинальный стиль)
+        if self._selected_card:
+            original_style = self._selected_card.property("original_style")
+            self._selected_card.setStyleSheet(original_style)
+        
+        # Выделяем новую карточку - меняем фон на акцентный цвет
+        selected_style = """
+            background-color: #00FA9A;
+            border: 1px solid #00FA9A;
+            border-radius: 8px;
+        """
+        card.setStyleSheet(selected_style)
+        
+        self._selected_card = card
+        self.update_buttons_state()
 
-            # Discount column
-            discount_item = QtWidgets.QTableWidgetItem(f"{discount:.2f}%" if p.discount else "0.00%")
-            discount_item.setFlags(discount_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 7, discount_item)
-            
-            quantity_item = QtWidgets.QTableWidgetItem(str(p.quantity or 0))
-            quantity_item.setFlags(quantity_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            table.setItem(row, 8, quantity_item)
-
-            # Photo
-            photo_label = QtWidgets.QLabel()
-            photo_label.setFixedSize(100, 60)
-
-            img_path = None
-            if p.image_path:
-                candidate = images_full_path(p.image_path)
-                if candidate and os.path.exists(candidate):
-                    img_path = candidate
-
-            # fallback: всегда использовать заглушку images/Icon.png
-            if not img_path:
-                placeholder = os.path.join(PROJECT_DIR, "images", "Icon.JPG")
-                img_path = placeholder if os.path.exists(placeholder) else None
-
-            if img_path:
-                pix = QtGui.QPixmap(img_path)
-                if pix.isNull() and os.path.exists(placeholder):
-                    pix = QtGui.QPixmap(placeholder)
-                photo_label.setPixmap(pix.scaled(photo_label.size(), QtCore.Qt.AspectRatioMode.KeepAspectRatio))
-
-            table.setCellWidget(row, 9, photo_label)
-
-            # Применяем фон ко всем ячейкам строки
-            for col in range(table.columnCount()):
-                item = table.item(row, col)
-                if item:
-                    if bg_color:
-                        item.setBackground(bg_color)
-                    else:
-                        item.setBackground(QtGui.QColor("white"))
-
-        table.resizeRowsToContents()
-
-    def on_selection_changed(self):
-        """Активирует/деактивирует кнопки редактирования и удаления в зависимости от выбора"""
-        has_selection = len(self.ui.table.selectedItems()) > 0
+    def update_buttons_state(self):
+        """Активирует/деактивирует кнопки редактирования и удаления"""
+        has_selection = self._selected_card is not None
         
         # Включаем кнопки только если есть выделение и пользователь администратор
         if has_selection and self.role_name == "Администратор":
@@ -274,7 +375,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
 
     def handle_add(self):
         if self._edit_window and self._edit_window.isVisible():
-            QtWidgets.QMessageBox.warning(self, "Внимание", "Окно добавления/редактирования уже открыто")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Окно добавления/редактирования уже открыто")
             return
         try:
             self._edit_window = ProductEditWindow(parent=self)
@@ -285,32 +386,20 @@ class ProductsWindow(QtWidgets.QMainWindow):
             print(f"Error opening edit window: {e}")  # Для отладки
 
     def handle_edit(self):
-        # Получаем выделенную строку
-        selected_rows = set()
-        for item in self.ui.table.selectedItems():
-            selected_rows.add(item.row())
-        
-        if not selected_rows:
-            QtWidgets.QMessageBox.information(self, "Информация", "Выберите товар для редактирования")
-            return
-        
-        # Берем первую выделенную строку
-        row = list(selected_rows)[0]
-        item = self.ui.table.item(row, 0)
-        if not item:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Не удалось получить ID товара")
+        if not self._selected_card:
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите товар для редактирования")
             return
         
         try:
-            pid = int(item.text())
+            pid = self._selected_card.property("product_id")
             self.open_edit(pid)
-        except ValueError as e:
-            QtWidgets.QMessageBox.critical(self, "Ошибка", f"Неверный ID товара: {str(e)}")
+        except (ValueError, AttributeError) as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось получить ID товара: {str(e)}")
             print(f"Error parsing product ID: {e}")
 
     def open_edit(self, product_id: int):
         if self._edit_window and self._edit_window.isVisible():
-            QtWidgets.QMessageBox.warning(self, "Внимание", "Окно добавления/редактирования уже открыто")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Окно добавления/редактирования уже открыто")
             return
         
         try:
@@ -324,30 +413,22 @@ class ProductsWindow(QtWidgets.QMainWindow):
     def on_edit_saved(self):
         # refresh products
         self.load_products()
+        self._selected_card = None
+        self.update_buttons_state()
 
     def handle_delete(self):
-        # Получаем выделенную строку
-        selected_rows = set()
-        for item in self.ui.table.selectedItems():
-            selected_rows.add(item.row())
-        
-        if not selected_rows:
-            QtWidgets.QMessageBox.information(self, "Информация", "Выберите товар для удаления")
-            return
-        
-        # Берем первую выделенную строку
-        row = list(selected_rows)[0]
-        item = self.ui.table.item(row, 0)
-        if not item:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Не удалось получить ID товара")
+        if not self._selected_card:
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите товар для удаления")
             return
         
         try:
-            pid = int(item.text())
+            pid = self._selected_card.property("product_id")
             
-            # Получаем название товара для подтверждения
-            name_item = self.ui.table.item(row, 1)
-            product_name = name_item.text() if name_item else f"ID: {pid}"
+            product_name = "Неизвестный товар"
+            for child in self._selected_card.findChildren(QtWidgets.QLabel):
+                if child.text() and len(child.text()) < 100:
+                    product_name = child.text()
+                    break
             
             # confirm
             reply = QtWidgets.QMessageBox.question(
@@ -364,8 +445,10 @@ class ProductsWindow(QtWidgets.QMainWindow):
             delete_product(pid)
             QtWidgets.QMessageBox.information(self, "Успех", f"Товар \"{product_name}\" успешно удалён")
             self.load_products()
+            self._selected_card = None
+            self.update_buttons_state()
             
-        except ValueError as e:
+        except (ValueError, AttributeError) as e:
             QtWidgets.QMessageBox.critical(self, "Ошибка", f"Неверный ID товара: {str(e)}")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось удалить товар: {str(e)}")
@@ -379,7 +462,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
             self.orders_window.show()
             self.hide()  # Скрываем текущее окно
         except ImportError as e:
-            QtWidgets.QMessageBox.warning(self, "Внимание", f"Окно заказов недоступно: {e}")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", f"Окно заказов недоступно: {e}")
 
     def logout(self):
         """Выход из системы - возврат к окну входа"""

@@ -22,6 +22,7 @@ class OrdersWindow(QtWidgets.QMainWindow):
         self._orders_cache = []
         self._details_window = None
         self._edit_window = None
+        self._selected_card = None  # Для хранения выбранной карточки
         
         # Настройка прав доступа
         self.setup_role_permissions()
@@ -35,6 +36,9 @@ class OrdersWindow(QtWidgets.QMainWindow):
         # Подключение сигналов
         self.setup_connections()
         
+        # Инициализируем состояние кнопок
+        self.update_buttons_state()
+        
     def setup_connections(self):
         """Подключение всех сигналов"""
         self.ui.btn_back.clicked.connect(self.go_back)
@@ -45,8 +49,7 @@ class OrdersWindow(QtWidgets.QMainWindow):
         self.ui.btn_edit.clicked.connect(self.edit_order)
         self.ui.btn_view_details.clicked.connect(self.view_order_details)
         self.ui.btn_delete.clicked.connect(self.delete_selected_order)
-        self.ui.table.cellDoubleClicked.connect(self.on_table_double_click)
-        self.ui.client_search.textChanged.connect(self.apply_filters)
+        # Убрали двойной клик по таблице
         
     def setup_role_permissions(self):
         """Настройка прав доступа в зависимости от роли"""
@@ -100,7 +103,7 @@ class OrdersWindow(QtWidgets.QMainWindow):
             self.pickup_points = get_all_pickup_points()
             
         except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", f"Не удалось загрузить фильтры: {e}")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", f"Не удалось загрузить фильтры: {e}")
     
     def load_orders(self):
         """Загрузка всех заказов из базы"""
@@ -152,7 +155,7 @@ class OrdersWindow(QtWidgets.QMainWindow):
     def apply_filters(self):
         """Применение фильтров к загруженным заказам"""
         if not self._orders_cache:
-            self.ui.table.setRowCount(0)
+            self.clear_cards()
             self.statusBar().showMessage("Нет данных для отображения")
             return
         
@@ -167,7 +170,7 @@ class OrdersWindow(QtWidgets.QMainWindow):
         for order in self._orders_cache:
             # Фильтр по статусу
             if status_filter != "Все статусы":
-                if not order.status.lower() or order.status.name.lower() != status_filter:
+                if not order.status or order.status.name.lower() != status_filter.lower():
                     continue
             
             # Фильтр по дате
@@ -189,7 +192,6 @@ class OrdersWindow(QtWidgets.QMainWindow):
                 client_words = client_name.split()
                 
                 # Проверяем, содержатся ли все слова поиска в любом порядке
-                # Например: "Иван Петров" найдется в "Петров Иван Сергеевич"
                 match_found = True
                 for word in search_words:
                     if not any(word in client_word for client_word in client_words):
@@ -204,88 +206,183 @@ class OrdersWindow(QtWidgets.QMainWindow):
         # Сортируем по дате (новые сверху)
         filtered_orders.sort(key=lambda x: x.order_date if x.order_date else datetime.min, reverse=True)
         
-        # Отображаем в таблице
+        # Отображаем в виде карточек
         self.display_orders(filtered_orders)
     
+    def clear_cards(self):
+        """Очищает все карточки заказов"""
+        while self.ui.cards_layout.count():
+            item = self.ui.cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._selected_card = None
+        self.update_buttons_state()
+    
     def display_orders(self, orders):
-        """Отображение заказов в таблице"""
-        self.ui.table.setRowCount(len(orders))
+        """Отображение заказов в виде карточек"""
+        self.clear_cards()
         
-        for row, order in enumerate(orders):
-            # ID
-            id_item = QtWidgets.QTableWidgetItem(str(order.id))
-            id_item.setFlags(id_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            self.ui.table.setItem(row, 0, id_item)
-            
-            # Дата заказа
-            date_str = order.order_date.strftime("%d.%m.%Y") if order.order_date else ""
-            date_item = QtWidgets.QTableWidgetItem(date_str)
-            date_item.setFlags(date_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            self.ui.table.setItem(row, 1, date_item)
-            
-            # Клиент
-            client_name = order.user.full_name if order.user else "Неизвестно"
-            client_item = QtWidgets.QTableWidgetItem(client_name)
-            client_item.setFlags(client_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            self.ui.table.setItem(row, 2, client_item)
-            
-            # Сумма заказа
-            total = self.calculate_order_total(order)
-            total_item = QtWidgets.QTableWidgetItem(f"{total:.2f} руб.")
-            total_item.setFlags(total_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            total_item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-            self.ui.table.setItem(row, 3, total_item)
-            
-            # Статус
-            status_name = order.status.name if order.status else "Без статуса"
-            status_item = QtWidgets.QTableWidgetItem(status_name)
-            status_item.setFlags(status_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            
-            # Цвет статуса
-            if order.status:
-                if order.status.name == "Новый":
-                    status_item.setBackground(QtGui.QColor("#FFE5B4"))  # светло-оранжевый
-                elif order.status.name == "Обработан":
-                    status_item.setBackground(QtGui.QColor("#ADD8E6"))  # светло-голубой
-                elif order.status.name == "Доставляется":
-                    status_item.setBackground(QtGui.QColor("#FFD700"))  # золотой
-                elif order.status.name == "Готов к выдаче":
-                    status_item.setBackground(QtGui.QColor("#90EE90"))  # светло-зеленый
-                elif order.status.name == "Выдан":
-                    status_item.setBackground(QtGui.QColor("#98FB98"))  # пастельно-зеленый
-                elif order.status.name == "Завершен":
-                    status_item.setBackground(QtGui.QColor("#98FB98"))  # пастельно-зеленый
-                elif order.status.name == "Отменен":
-                    status_item.setBackground(QtGui.QColor("#FFB6C1"))  # светло-розовый
-            
-            self.ui.table.setItem(row, 4, status_item)
-            
-            # Пункт выдачи
-            pickup_info = ""
-            if order.pickup_point:
-                pickup_info = f"{order.pickup_point.city}, {order.pickup_point.street} {order.pickup_point.building}"
-            pickup_item = QtWidgets.QTableWidgetItem(pickup_info)
-            pickup_item.setFlags(pickup_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            self.ui.table.setItem(row, 5, pickup_item)
-            
-            # Код получения
-            code_item = QtWidgets.QTableWidgetItem(order.pickup_code or "")
-            code_item.setFlags(code_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            self.ui.table.setItem(row, 6, code_item)
-            
-            # Количество товаров
-            items_count = len(order.details) if order.details else 0
-            count_item = QtWidgets.QTableWidgetItem(str(items_count))
-            count_item.setFlags(count_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-            count_item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-            self.ui.table.setItem(row, 7, count_item)
+        if not orders:
+            # Показываем сообщение, если заказов нет
+            no_orders_label = QtWidgets.QLabel("Заказы не найдены")
+            no_orders_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+            no_orders_label.setStyleSheet("font-size: 14pt; color: #666666; padding: 50px;")
+            self.ui.cards_layout.addWidget(no_orders_label)
+            return
+        
+        for order in orders:
+            card = self.create_order_card(order)
+            self.ui.cards_layout.addWidget(card)
         
         # Показываем сообщение о количестве отфильтрованных заказов
         if len(orders) > 0:
             self.statusBar().showMessage(f"Показано {len(orders)} из {len(self._orders_cache)} заказов", 3000)
+    
+    def create_order_card(self, order):
+        """Создает карточку заказа"""
+        card_widget = QtWidgets.QWidget()
+        card_widget.setObjectName("card_widget")
+        card_widget.setMinimumHeight(120)
+        card_widget.setMaximumHeight(120)
+        card_widget.setProperty("order_id", order.id)  # Сохраняем ID заказа
+        card_widget.setProperty("original_style", "")  # Для хранения оригинального стиля
         
-        self.ui.table.resizeRowsToContents()
-        self.ui.table.horizontalHeader().setStretchLastSection(True)
+        # Определяем цвет статуса
+        status_color = self.get_status_color(order.status.name if order.status else "Без статуса")
+        
+        # Оригинальный стиль карточки
+        original_style = f"""
+            background-color: white;
+            border: 1px solid #FFFFFF;
+            border-radius: 8px;
+        """
+        card_widget.setProperty("original_style", original_style)
+        card_widget.setStyleSheet(original_style)
+        
+        # Основной layout карточки
+        main_layout = QtWidgets.QHBoxLayout(card_widget)
+        main_layout.setContentsMargins(15, 10, 15, 10)
+        main_layout.setSpacing(20)
+        
+        # Левая часть - основная информация
+        left_widget = QtWidgets.QWidget()
+        left_layout = QtWidgets.QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(5)
+        
+        # Заголовок с ID и датой
+        title_widget = QtWidgets.QWidget()
+        title_layout = QtWidgets.QHBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(10)
+        
+        # ID заказа
+        order_id_label = QtWidgets.QLabel(f"Заказ #{order.id}")
+        order_id_label.setStyleSheet("font-weight: bold; font-size: 11pt; color: #2E4A8C;")
+        title_layout.addWidget(order_id_label)
+        
+        # Дата заказа
+        date_str = order.order_date.strftime("%d.%m.%Y") if order.order_date else "Дата не указана"
+        date_label = QtWidgets.QLabel(f"📅 {date_str}")
+        date_label.setStyleSheet("color: #666666;")
+        title_layout.addWidget(date_label)
+        
+        title_layout.addStretch()
+        
+        left_layout.addWidget(title_widget)
+        
+        # Информация о клиенте
+        client_name = order.user.full_name if order.user else "Неизвестный клиент"
+        client_label = QtWidgets.QLabel(f"👤 Клиент: {client_name}")
+        client_label.setStyleSheet("font-size: 9pt;")
+        left_layout.addWidget(client_label)
+        
+        # Пункт выдачи
+        pickup_info = ""
+        if order.pickup_point:
+            pickup_info = f"📍 {order.pickup_point.city}, {order.pickup_point.street} {order.pickup_point.building}"
+        else:
+            pickup_info = "📍 Пункт выдачи не указан"
+        pickup_label = QtWidgets.QLabel(pickup_info)
+        pickup_label.setStyleSheet("font-size: 9pt;")
+        left_layout.addWidget(pickup_label)
+        
+        left_layout.addStretch()
+        
+        main_layout.addWidget(left_widget, 6)  # 6 частей из 10
+        
+        # Правая часть - детали заказа
+        right_widget = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(5)
+        
+        # Сумма заказа
+        total = self.calculate_order_total(order)
+        total_label = QtWidgets.QLabel(f"💰 {total:.2f} ₽")
+        total_label.setStyleSheet("font-weight: bold; font-size: 11pt; color: #2E8B57;")
+        right_layout.addWidget(total_label)
+        
+        # Количество товаров
+        items_count = len(order.details) if order.details else 0
+        items_label = QtWidgets.QLabel(f"📦 Товаров: {items_count}")
+        items_label.setStyleSheet("font-size: 9pt;")
+        right_layout.addWidget(items_label)
+        
+        # Код получения
+        code_text = f"🔐 Код: {order.pickup_code}" if order.pickup_code else "🔐 Код не указан"
+        code_label = QtWidgets.QLabel(code_text)
+        code_label.setStyleSheet("font-size: 9pt;")
+        right_layout.addWidget(code_label)
+        
+        right_layout.addStretch()
+        
+        main_layout.addWidget(right_widget, 3)  # 3 части из 10
+        
+        # Крайняя правая часть - статус
+        status_widget = QtWidgets.QWidget()
+        status_widget.setFixedWidth(150)
+        status_layout = QtWidgets.QVBoxLayout(status_widget)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(5)
+        
+        # Статус заказа
+        status_name = order.status.name if order.status else "Без статуса"
+        status_label = QtWidgets.QLabel(status_name)
+        status_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        status_label.setStyleSheet(f"""
+            font-weight: bold;
+            font-size: 10pt;
+            color: white;
+            background-color: {status_color};
+            border-radius: 12px;
+            padding: 4px 8px;
+        """)
+        status_layout.addWidget(status_label)
+        
+        # Пустое пространство
+        status_layout.addStretch()
+        
+        main_layout.addWidget(status_widget, 1)  # 1 часть из 10
+        
+        # Событие клика для выбора карточки
+        card_widget.mousePressEvent = lambda e, card=card_widget: self.select_card(card)
+        
+        return card_widget
+    
+    def get_status_color(self, status_name):
+        """Возвращает цвет для статуса заказа"""
+        color_map = {
+            "Новый": "#FFA500",  # оранжевый
+            "Обработан": "#1E90FF",  # голубой
+            "Доставляется": "#FFD700",  # золотой
+            "Готов к выдаче": "#32CD32",  # зеленый
+            "Выдан": "#228B22",  # лесной зеленый
+            "Завершен": "#2E8B57",  # морская зелень
+            "Отменен": "#DC143C",  # малиновый
+            "Без статуса": "#808080"  # серый
+        }
+        return color_map.get(status_name, "#808080")
     
     def calculate_order_total(self, order):
         """Вычисление общей суммы заказа"""
@@ -296,6 +393,42 @@ class OrdersWindow(QtWidgets.QMainWindow):
                 total += (detail.quantity * price)
         return total
     
+    def select_card(self, card):
+        """Выделяет карточку (меняет фон на акцентный) и снимает выделение с других"""
+        # Снимаем выделение с предыдущей карточки (восстанавливаем оригинальный стиль)
+        if self._selected_card:
+            original_style = self._selected_card.property("original_style")
+            self._selected_card.setStyleSheet(original_style)
+        
+        # Выделяем новую карточку - меняем фон на акцентный цвет
+        selected_style = """
+            background-color: #00FA9A;
+            border: 1px solid #00FA9A;
+            border-radius: 8px;
+        """
+        card.setStyleSheet(selected_style)
+        
+        self._selected_card = card
+        self.update_buttons_state()
+    
+    def update_buttons_state(self):
+        """Активирует/деактивирует кнопки действий"""
+        has_selection = self._selected_card is not None
+        
+        # Кнопки редактирования и удаления доступны только администраторам
+        if has_selection and self.role_name == "Администратор":
+            self.ui.btn_edit.setEnabled(True)
+            self.ui.btn_delete.setEnabled(True)
+        else:
+            self.ui.btn_edit.setEnabled(False)
+            self.ui.btn_delete.setEnabled(False)
+        
+        # Кнопка просмотра деталей доступна всем при наличии выбора
+        if has_selection:
+            self.ui.btn_view_details.setEnabled(True)
+        else:
+            self.ui.btn_view_details.setEnabled(False)
+    
     def reset_filters(self):
         """Сброс всех фильтров"""
         self.ui.status_combo.setCurrentIndex(0)
@@ -304,34 +437,25 @@ class OrdersWindow(QtWidgets.QMainWindow):
         self.ui.client_search.clear()
         self.apply_filters()
     
-    def on_table_double_click(self, row, column):
-        """Двойной клик по строке - просмотр деталей"""
-        self.view_order_details()
-    
     def view_order_details(self):
         """Просмотр деталей выбранного заказа"""
-        selected_items = self.ui.table.selectedItems()
-        if not selected_items:
-            QtWidgets.QMessageBox.information(self, "Информация", "Выберите заказ для просмотра")
+        if not self._selected_card:
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите заказ для просмотра")
             return
         
-        row = selected_items[0].row()
-        order_id_item = self.ui.table.item(row, 0)
-        if not order_id_item:
-            return
-        
-        order_id = int(order_id_item.text())
-        
-        # Закрываем предыдущее окно, если открыто
-        if self._details_window and self._details_window.isVisible():
-            self._details_window.close()
-        
-        # Открываем новое окно с деталями
         try:
+            order_id = self._selected_card.property("order_id")
+            
+            # Закрываем предыдущее окно, если открыто
+            if self._details_window and self._details_window.isVisible():
+                self._details_window.close()
+            
+            # Открываем новое окно с деталями
             self._details_window = OrderDetailsWindow(order_id, parent=self)
             self._details_window.show()
-        except ImportError as e:
-            QtWidgets.QMessageBox.warning(self, "Внимание", f"Окно деталей недоступно: {e}")
+            
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", f"Окно деталей недоступно: {e}")
     
     def add_order(self):
         """Добавление нового заказа"""
@@ -348,19 +472,13 @@ class OrdersWindow(QtWidgets.QMainWindow):
     
     def edit_order(self):
         """Редактирование выбранного заказа"""
-        selected_items = self.ui.table.selectedItems()
-        if not selected_items:
-            QtWidgets.QMessageBox.information(self, "Информация", "Выберите заказ для редактирования")
+        if not self._selected_card:
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите заказ для редактирования")
             return
-        
-        row = selected_items[0].row()
-        order_id_item = self.ui.table.item(row, 0)
-        if not order_id_item:
-            return
-        
-        order_id = int(order_id_item.text())
         
         try:
+            order_id = self._selected_card.property("order_id")
+            
             if self._edit_window and self._edit_window.isVisible():
                 self._edit_window.close()
             
@@ -378,32 +496,27 @@ class OrdersWindow(QtWidgets.QMainWindow):
                                         "Только администратор может удалять заказы")
             return
         
-        selected_items = self.ui.table.selectedItems()
-        if not selected_items:
-            QtWidgets.QMessageBox.information(self, "Информация", "Выберите заказ для удаления")
+        if not self._selected_card:
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите заказ для удаления")
             return
         
-        row = selected_items[0].row()
-        order_id_item = self.ui.table.item(row, 0)
-        if not order_id_item:
-            return
-        
-        order_id = int(order_id_item.text())
-        
-        # Подтверждение
-        reply = QtWidgets.QMessageBox.question(
-            self, "Подтверждение удаления",
-            f"Вы уверены, что хотите удалить заказ #{order_id}?\nЭто действие нельзя отменить.",
-            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
-        )
-        
-        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-            try:
+        try:
+            order_id = self._selected_card.property("order_id")
+            
+            # Подтверждение
+            reply = QtWidgets.QMessageBox.question(
+                self, "Подтверждение удаления",
+                f"Вы уверены, что хотите удалить заказ #{order_id}?\nЭто действие нельзя отменить.",
+                QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No
+            )
+            
+            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                 delete_order(order_id)
                 QtWidgets.QMessageBox.information(self, "Успех", "Заказ удален")
                 self.refresh_orders()  # Обновляем список заказов
-            except Exception as e:
-                QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось удалить заказ: {e}")
+                
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось удалить заказ: {e}")
     
     def go_back(self):
         """Возврат к предыдущему окну"""

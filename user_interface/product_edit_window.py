@@ -110,7 +110,7 @@ class ProductEditWindow(QtWidgets.QDialog):
             return
         pix = QtGui.QPixmap(fp)
         if pix.isNull():
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Невозможно загрузить изображение")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Невозможно загрузить изображение")
             return
         im = pix.scaled(
             300, 200,
@@ -132,15 +132,15 @@ class ProductEditWindow(QtWidgets.QDialog):
     def save(self):
         name = self.ui.input_name.text().strip()
         if not name:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Введите наименование")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Введите наименование")
             return
         price = float(self.ui.input_price.value())
         if price < 0:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Цена не может быть отрицательной")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Цена не может быть отрицательной")
             return
         qty = int(self.ui.input_quantity.value())
         if qty < 0:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Количество не может быть отрицательным")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Количество не может быть отрицательным")
             return
         discount = float(self.ui.input_discount.value())
 

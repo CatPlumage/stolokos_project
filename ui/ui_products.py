@@ -6,6 +6,8 @@ class Ui_ProductsWindow:
         BG_DEFAULT = "#FFFFFF"
         BG_SECONDARY = "#7FFF00"
         BG_ACCENT = "#00FA9A"
+        BG_SELECTED = BG_ACCENT
+        BG_SCROLL_AREA = "#F0F0F0"  # Светло-серый фон для области прокрутки
         TEXT_DARK = "#000000"
 
         MainWindow.setWindowTitle("Каталог товаров — Stokolos")
@@ -56,29 +58,6 @@ class Ui_ProductsWindow:
                 font-family: "Times New Roman";
                 font-size: 9pt;
             }}
-            QTableWidget {{
-                background-color: {BG_DEFAULT};
-                color: {TEXT_DARK};
-                gridline-color: #DDDDDD;
-                alternate-background-color: #F8F8F8;
-                border: 1px solid #CCCCCC;
-                selection-background-color: {BG_ACCENT};
-                selection-color: {TEXT_DARK};
-                font-family: "Times New Roman";
-                font-size: 8pt;
-            }}
-            QHeaderView::section {{
-                background-color: #F0F0F0;
-                color: {TEXT_DARK};
-                padding: 6px;
-                border: 1px solid #DDDDDD;
-                font-weight: bold;
-                font-family: "Times New Roman";
-                font-size: 8pt;
-            }}
-            QTableWidget::item {{
-                padding: 4px;
-            }}
             QPushButton {{
                 background-color: {BG_SECONDARY};
                 color: {TEXT_DARK};
@@ -90,6 +69,26 @@ class Ui_ProductsWindow:
             }}
             QPushButton:hover {{
                 background-color: {BG_ACCENT};
+            }}
+            QPushButton:disabled {{
+                background-color: #CCCCCC;
+                color: #666666;
+            }}
+            QScrollArea {{
+                border: none;
+                background-color: {BG_SCROLL_AREA};
+            }}
+            QScrollArea QWidget {{
+                background-color: {BG_SCROLL_AREA};
+            }}
+            QWidget#card_widget {{
+                background-color: {BG_DEFAULT};
+                border: 1px solid #DDDDDD;
+                border-radius: 8px;
+                margin: 5px;
+            }}
+            QWidget#card_widget:hover {{
+                border-color: #AAAAAA;
             }}
             /* Стиль для QMessageBox */
             QMessageBox {{
@@ -135,25 +134,30 @@ class Ui_ProductsWindow:
         self.sort_box.setGeometry(560, 40, 160, 28)
         self.sort_box.addItems(["Нет сортировки", "Кол-во ↑", "Кол-во ↓"])
 
-        self.table = QtWidgets.QTableWidget(self.centralwidget)
-        self.table.setGeometry(20, 80, 960, 560)
-        self.table.setColumnCount(10)
-        self.table.setColumnHidden(0, True)
-        self.table.setHorizontalHeaderLabels([
-            "ID", "Наименование", "Категория", "Описание", "Производитель",
-            "Поставщик", "Цена", "Скидка", "Кол-во", "Фото"
-        ])
-        self.table.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
-        self.table.setAlternatingRowColors(True)
+        self.scroll_area = QtWidgets.QScrollArea(self.centralwidget)
+        self.scroll_area.setGeometry(20, 80, 960, 560)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_area.setWidget(self.scroll_widget)
+        
+        self.cards_layout = QtWidgets.QVBoxLayout(self.scroll_widget)
+        self.cards_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.cards_layout.setSpacing(10)
+        self.cards_layout.setContentsMargins(5, 5, 5, 5)
 
         self.btn_add = QtWidgets.QPushButton("Добавить товар", self.centralwidget)
         self.btn_add.setGeometry(20, 650, 140, 30)
 
         self.btn_edit = QtWidgets.QPushButton("Редактировать", self.centralwidget)
         self.btn_edit.setGeometry(170, 650, 140, 30)
+        self.btn_edit.setEnabled(False)
 
         self.btn_delete = QtWidgets.QPushButton("Удалить", self.centralwidget)
         self.btn_delete.setGeometry(320, 650, 140, 30)
+        self.btn_delete.setEnabled(False)
 
         # === КНОПКА "СПИСОК ЗАКАЗОВ" ===
         self.btn_orders = QtWidgets.QPushButton("Список заказов", self.centralwidget)

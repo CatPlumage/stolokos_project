@@ -6,6 +6,8 @@ class Ui_OrdersWindow:
         BG_DEFAULT = "#FFFFFF"
         BG_SECONDARY = "#7FFF00"
         BG_ACCENT = "#00FA9A"
+        BG_SELECTED = BG_ACCENT  # Цвет выделения
+        BG_SCROLL_AREA = "#F0F0F0"  # Светло-серый фон для области прокрутки
         TEXT_DARK = "#000000"
 
         MainWindow.setWindowTitle("Управление заказами — Stokolos")
@@ -78,34 +80,6 @@ class Ui_OrdersWindow:
                 font-family: "Times New Roman";
                 font-size: 9pt;
             }}
-            QTableWidget {{
-                background-color: {BG_DEFAULT};
-                color: {TEXT_DARK};
-                gridline-color: #DDDDDD;
-                alternate-background-color: #F8F8F8;
-                border: 1px solid #CCCCCC;
-                selection-background-color: {BG_ACCENT};
-                selection-color: {TEXT_DARK};
-                font-family: "Times New Roman";
-                font-size: 8pt;
-            }}
-            QHeaderView::section {{
-                background-color: #F0F0F0;
-                color: {TEXT_DARK};
-                padding: 6px;
-                border: 1px solid #DDDDDD;
-                font-weight: bold;
-                font-family: "Times New Roman";
-                font-size: 8pt;
-            }}
-            QTableWidget::item {{
-                padding: 4px;
-            }}
-            /* Стиль для выделенной строки */
-            QTableWidget::item:selected {{
-                background-color: {BG_ACCENT};
-                color: {TEXT_DARK};
-            }}
             QPushButton {{
                 background-color: {BG_SECONDARY};
                 color: {TEXT_DARK};
@@ -117,6 +91,26 @@ class Ui_OrdersWindow:
             }}
             QPushButton:hover {{
                 background-color: {BG_ACCENT};
+            }}
+            QPushButton:disabled {{
+                background-color: #CCCCCC;
+                color: #666666;
+            }}
+            QScrollArea {{
+                border: none;
+                background-color: {BG_SCROLL_AREA};
+            }}
+            QScrollArea QWidget {{  /* Widget внутри ScrollArea */
+                background-color: {BG_SCROLL_AREA};
+            }}
+            QWidget#card_widget {{
+                background-color: {BG_DEFAULT};
+                border: 1px solid #DDDDDD;
+                border-radius: 8px;
+                margin: 5px;
+            }}
+            QWidget#card_widget:hover {{
+                border-color: #AAAAAA;
             }}
             /* Стиль для QMessageBox */
             QMessageBox {{
@@ -206,47 +200,42 @@ class Ui_OrdersWindow:
         self.btn_reset = QtWidgets.QPushButton("Сбросить", self.filter_group)
         self.btn_reset.setGeometry(550, 60, 100, 25)
         
-        # Button panel - УПОРЯДОЧИМ КНОПКИ
+        # Button panel
         self.btn_refresh = QtWidgets.QPushButton("Обновить", self.centralwidget)
         self.btn_refresh.setGeometry(10, 150, 100, 30)
         
-        # Новые кнопки: Добавить, Редактировать, Удалить - в одном ряду
+        # Кнопки действий с заказами
         self.btn_add = QtWidgets.QPushButton("Добавить заказ", self.centralwidget)
         self.btn_add.setGeometry(120, 150, 140, 30)
         
         self.btn_edit = QtWidgets.QPushButton("Редактировать заказ", self.centralwidget)
         self.btn_edit.setGeometry(270, 150, 140, 30)
+        self.btn_edit.setEnabled(False)
         
         self.btn_delete = QtWidgets.QPushButton("Удалить заказ", self.centralwidget)
         self.btn_delete.setGeometry(420, 150, 140, 30)
+        self.btn_delete.setEnabled(False)
         
         # Кнопка просмотра деталей
         self.btn_view_details = QtWidgets.QPushButton("Просмотреть детали", self.centralwidget)
         self.btn_view_details.setGeometry(570, 150, 140, 30)
+        self.btn_view_details.setEnabled(False)
         
-        # Table
-        self.table = QtWidgets.QTableWidget(self.centralwidget)
-        self.table.setGeometry(10, 190, 1380, 450)
-        self.table.setColumnCount(8)
-        headers = [
-            "ID", "Дата заказа", "Клиент",
-            "Сумма заказа", "Статус", "Пункт выдачи", 
-            "Код получения", "Товаров"
-        ]
-        self.table.setHorizontalHeaderLabels(headers)
-        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        # Заменяем таблицу на ScrollArea для карточек
+        self.scroll_area = QtWidgets.QScrollArea(self.centralwidget)
+        self.scroll_area.setGeometry(10, 190, 1380, 450)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
-        # Column widths
-        self.table.setColumnWidth(0, 50)   # ID
-        self.table.setColumnWidth(1, 100)  # Дата
-        self.table.setColumnWidth(2, 200)  # Клиент
-        self.table.setColumnWidth(3, 120)  # Сумма
-        self.table.setColumnWidth(4, 120)  # Статус
-        self.table.setColumnWidth(5, 250)  # Пункт выдачи
-        self.table.setColumnWidth(6, 100)  # Код
-        self.table.setColumnWidth(7, 80)   # Товаров
+        self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_area.setWidget(self.scroll_widget)
+        
+        # Вертикальный layout для карточек
+        self.cards_layout = QtWidgets.QVBoxLayout(self.scroll_widget)
+        self.cards_layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.cards_layout.setSpacing(10)
+        self.cards_layout.setContentsMargins(5, 5, 5, 5)
         
         # Status bar
         MainWindow.setStatusBar(QtWidgets.QStatusBar(MainWindow))

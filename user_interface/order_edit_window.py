@@ -146,17 +146,17 @@ class OrderEditWindow(QtWidgets.QDialog):
         quantity = self.ui.input_quantity.value()
         
         if not product_id:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Выберите товар")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите товар")
             return
         
         if quantity <= 0:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Количество должно быть больше 0")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Количество должно быть больше 0")
             return
         
         # Проверяем, не добавлен ли уже этот товар
         for item in self.order_details_data:
             if item["product_id"] == product_id:
-                QtWidgets.QMessageBox.warning(self, "Ошибка", "Этот товар уже добавлен в заказ")
+                QtWidgets.QMessageBox.warning(self, "Предупреждение", "Этот товар уже добавлен в заказ")
                 return
         
         # Получаем информацию о товаре
@@ -172,12 +172,12 @@ class OrderEditWindow(QtWidgets.QDialog):
                 break
         
         if not product:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Товар не найден")
+            QtWidgets.QMessageBox.critical(self, "Ошибка", "Товар не найден")
             return
         
         # Проверяем остаток на складе
         if product.quantity and quantity > product.quantity:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", 
+            QtWidgets.QMessageBox.critical(self, "Ошибка", 
                                         f"Недостаточно товара на складе. Доступно: {product.quantity} шт.")
             return
         
@@ -203,7 +203,7 @@ class OrderEditWindow(QtWidgets.QDialog):
         """Удаляем выбранный товар из заказа"""
         selected_items = self.ui.table_products.selectedItems()
         if not selected_items:
-            QtWidgets.QMessageBox.information(self, "Информация", "Выберите товар для удаления")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите товар для удаления")
             return
         
         row = selected_items[0].row()
@@ -257,21 +257,21 @@ class OrderEditWindow(QtWidgets.QDialog):
         # Проверяем обязательные поля
         user_id = self.ui.cmb_user.currentData()
         if not user_id:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Выберите пользователя")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите пользователя")
             return
         
         status_id = self.ui.cmb_status.currentData()
         if not status_id:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Выберите статус заказа")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите статус заказа")
             return
         
         pickup_point_id = self.ui.cmb_pickup_point.currentData()
         if not pickup_point_id:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Выберите пункт выдачи")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите пункт выдачи")
             return
         
         if not self.order_details_data:
-            QtWidgets.QMessageBox.warning(self, "Ошибка", "Добавьте хотя бы один товар в заказ")
+            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Добавьте хотя бы один товар в заказ")
             return
         
         # Получаем данные
