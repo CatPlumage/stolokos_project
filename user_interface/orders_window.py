@@ -27,9 +27,6 @@ class OrdersWindow(QtWidgets.QMainWindow):
         # Настройка прав доступа
         self.setup_role_permissions()
         
-        # Загрузка фильтров
-        self.load_filters()
-        
         # Загрузка заказов
         self.load_orders()
         
@@ -46,7 +43,6 @@ class OrdersWindow(QtWidgets.QMainWindow):
         self.ui.btn_reset.clicked.connect(self.reset_filters)
         self.ui.btn_refresh.clicked.connect(self.refresh_orders)
         self.ui.btn_add.clicked.connect(self.add_order)
-        self.ui.btn_edit.clicked.connect(self.edit_order)
         self.ui.btn_view_details.clicked.connect(self.view_order_details)
         self.ui.btn_delete.clicked.connect(self.delete_selected_order)
         # Убрали двойной клик по таблице
@@ -68,42 +64,14 @@ class OrdersWindow(QtWidgets.QMainWindow):
         is_client = role_name == "Авторизированный клиент"
         
         # Фильтры видны менеджерам и админам
-        self.ui.status_combo.setVisible(is_manager or is_admin)
-        self.ui.date_from.setVisible(is_manager or is_admin)
-        self.ui.date_to.setVisible(is_manager or is_admin)
-        self.ui.client_search.setVisible(is_manager or is_admin)
-        self.ui.btn_apply.setVisible(is_manager or is_admin)
-        self.ui.btn_reset.setVisible(is_manager or is_admin)
-        self.ui.label_status.setVisible(is_manager or is_admin)
-        self.ui.label_date_from.setVisible(is_manager or is_admin)
-        self.ui.label_date_to.setVisible(is_manager or is_admin)
-        self.ui.label_client.setVisible(is_manager or is_admin)
+        self.ui.filter_group.setVisible(is_manager or is_admin)
         
         # Кнопки действий
         self.ui.btn_add.setVisible(is_admin)
-        self.ui.btn_edit.setVisible(is_admin)
         self.ui.btn_delete.setVisible(is_admin)
         
         # Если клиент, показываем только его заказы
         self.show_only_user_orders = is_client
-        
-    def load_filters(self):
-        """Загрузка данных для фильтров"""
-        try:
-            # Очищаем комбобокс перед загрузкой (чтобы избежать дублирования)
-            self.ui.status_combo.clear()
-            self.ui.status_combo.addItem("Все статусы")
-            
-            # Загружаем статусы
-            statuses = get_all_order_statuses()
-            for status in statuses:
-                self.ui.status_combo.addItem(status.name)
-            
-            # Загружаем пункты выдачи
-            self.pickup_points = get_all_pickup_points()
-            
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "Предупреждение", f"Не удалось загрузить фильтры: {e}")
     
     def load_orders(self):
         """Загрузка всех заказов из базы"""
@@ -159,28 +127,12 @@ class OrdersWindow(QtWidgets.QMainWindow):
             self.statusBar().showMessage("Нет данных для отображения")
             return
         
-        # Получаем значения фильтров
-        status_filter = self.ui.status_combo.currentText() if self.ui.status_combo.isVisible() else "Все статусы"
-        date_from = self.ui.date_from.date().toPyDate() if self.ui.date_from.isVisible() else None
-        date_to = self.ui.date_to.date().toPyDate() if self.ui.date_to.isVisible() else None
+        # Получаем значение фильтра по клиенту
         client_search = self.ui.client_search.text().strip().lower() if self.ui.client_search.isVisible() else ""
         
         filtered_orders = []
         
         for order in self._orders_cache:
-            # Фильтр по статусу
-            if status_filter != "Все статусы":
-                if not order.status or order.status.name.lower() != status_filter.lower():
-                    continue
-            
-            # Фильтр по дате
-            if date_from and order.order_date:
-                if order.order_date < date_from:
-                    continue
-            if date_to and order.order_date:
-                if order.order_date > date_to:
-                    continue
-            
             # Фильтр по клиенту
             if client_search:
                 if not order.user or not order.user.full_name:
@@ -283,7 +235,7 @@ class OrdersWindow(QtWidgets.QMainWindow):
         
         # Дата заказа
         date_str = order.order_date.strftime("%d.%m.%Y") if order.order_date else "Дата не указана"
-        date_label = QtWidgets.QLabel(f"📅 {date_str}")
+        date_label = QtWidgets.QLabel(f"{date_str}")
         date_label.setStyleSheet("color: #666666;")
         title_layout.addWidget(date_label)
         
@@ -293,16 +245,16 @@ class OrdersWindow(QtWidgets.QMainWindow):
         
         # Информация о клиенте
         client_name = order.user.full_name if order.user else "Неизвестный клиент"
-        client_label = QtWidgets.QLabel(f"👤 Клиент: {client_name}")
+        client_label = QtWidgets.QLabel(f"Клиент: {client_name}")
         client_label.setStyleSheet("font-size: 9pt;")
         left_layout.addWidget(client_label)
         
         # Пункт выдачи
         pickup_info = ""
         if order.pickup_point:
-            pickup_info = f"📍 {order.pickup_point.city}, {order.pickup_point.street} {order.pickup_point.building}"
+            pickup_info = f"{order.pickup_point.city}, {order.pickup_point.street} {order.pickup_point.building}"
         else:
-            pickup_info = "📍 Пункт выдачи не указан"
+            pickup_info = "Пункт выдачи не указан"
         pickup_label = QtWidgets.QLabel(pickup_info)
         pickup_label.setStyleSheet("font-size: 9pt;")
         left_layout.addWidget(pickup_label)
@@ -319,18 +271,18 @@ class OrdersWindow(QtWidgets.QMainWindow):
         
         # Сумма заказа
         total = self.calculate_order_total(order)
-        total_label = QtWidgets.QLabel(f"💰 {total:.2f} ₽")
+        total_label = QtWidgets.QLabel(f"{total:.2f} ₽")
         total_label.setStyleSheet("font-weight: bold; font-size: 11pt; color: #2E8B57;")
         right_layout.addWidget(total_label)
         
         # Количество товаров
         items_count = len(order.details) if order.details else 0
-        items_label = QtWidgets.QLabel(f"📦 Товаров: {items_count}")
+        items_label = QtWidgets.QLabel(f"Товаров: {items_count}")
         items_label.setStyleSheet("font-size: 9pt;")
         right_layout.addWidget(items_label)
         
         # Код получения
-        code_text = f"🔐 Код: {order.pickup_code}" if order.pickup_code else "🔐 Код не указан"
+        code_text = f"Код: {order.pickup_code}" if order.pickup_code else "Код не указан"
         code_label = QtWidgets.QLabel(code_text)
         code_label.setStyleSheet("font-size: 9pt;")
         right_layout.addWidget(code_label)
@@ -366,21 +318,37 @@ class OrdersWindow(QtWidgets.QMainWindow):
         main_layout.addWidget(status_widget, 1)  # 1 часть из 10
         
         # Событие клика для выбора карточки
-        card_widget.mousePressEvent = lambda e, card=card_widget: self.select_card(card)
+        card_widget.mousePressEvent = lambda e, card=card_widget: self.handle_card_click(e, card)
         
         return card_widget
+    
+    def handle_card_click(self, event, card):
+        """Обработчик кликов по карточке"""
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            # Одинарный клик - выделение карточки
+            self.select_card(card)
+            
+            # Если двойной клик - редактирование (только для администратора)
+            if event.type() == QtCore.QEvent.Type.MouseButtonDblClick and self.role_name == "Администратор":
+                self.handle_card_double_click(card)
+    
+    def handle_card_double_click(self, card):
+        """Редактирование заказа по двойному клику"""
+        if not card:
+            return
+        
+        try:
+            order_id = card.property("order_id")
+            if order_id:
+                self.edit_order(order_id)
+        except (ValueError, AttributeError) as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось получить ID заказа: {str(e)}")
+            print(f"Error parsing order ID: {e}")
     
     def get_status_color(self, status_name):
         """Возвращает цвет для статуса заказа"""
         color_map = {
-            "Новый": "#FFA500",  # оранжевый
-            "Обработан": "#1E90FF",  # голубой
-            "Доставляется": "#FFD700",  # золотой
-            "Готов к выдаче": "#32CD32",  # зеленый
-            "Выдан": "#228B22",  # лесной зеленый
-            "Завершен": "#2E8B57",  # морская зелень
-            "Отменен": "#DC143C",  # малиновый
-            "Без статуса": "#808080"  # серый
+            "Без статуса": "#808080"
         }
         return color_map.get(status_name, "#808080")
     
@@ -415,12 +383,10 @@ class OrdersWindow(QtWidgets.QMainWindow):
         """Активирует/деактивирует кнопки действий"""
         has_selection = self._selected_card is not None
         
-        # Кнопки редактирования и удаления доступны только администраторам
+        # Кнопка удаления доступна только администраторам
         if has_selection and self.role_name == "Администратор":
-            self.ui.btn_edit.setEnabled(True)
             self.ui.btn_delete.setEnabled(True)
         else:
-            self.ui.btn_edit.setEnabled(False)
             self.ui.btn_delete.setEnabled(False)
         
         # Кнопка просмотра деталей доступна всем при наличии выбора
@@ -431,9 +397,6 @@ class OrdersWindow(QtWidgets.QMainWindow):
     
     def reset_filters(self):
         """Сброс всех фильтров"""
-        self.ui.status_combo.setCurrentIndex(0)
-        self.ui.date_from.setDate(QtCore.QDate.currentDate().addMonths(-1))
-        self.ui.date_to.setDate(QtCore.QDate.currentDate())
         self.ui.client_search.clear()
         self.apply_filters()
     
@@ -470,15 +433,16 @@ class OrdersWindow(QtWidgets.QMainWindow):
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось открыть окно добавления заказа: {e}")
     
-    def edit_order(self):
-        """Редактирование выбранного заказа"""
-        if not self._selected_card:
-            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите заказ для редактирования")
-            return
+    def edit_order(self, order_id=None):
+        """Редактирование заказа (вызывается по двойному клику или с ID)"""
+        if not order_id:
+            # Если ID не передан, используем выделенный заказ
+            if not self._selected_card:
+                QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите заказ для редактирования")
+                return
+            order_id = self._selected_card.property("order_id")
         
         try:
-            order_id = self._selected_card.property("order_id")
-            
             if self._edit_window and self._edit_window.isVisible():
                 self._edit_window.close()
             

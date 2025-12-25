@@ -39,7 +39,6 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.ui.sort_box.setVisible(is_manager or is_admin)
 
         self.ui.btn_add.setVisible(is_admin)
-        self.ui.btn_edit.setVisible(is_admin)
         self.ui.btn_delete.setVisible(is_admin)
         self.ui.btn_orders.setVisible(is_manager or is_admin)
 
@@ -55,7 +54,6 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.ui.supplier_filter.currentTextChanged.connect(self.apply_filters)
         self.ui.sort_box.currentTextChanged.connect(self.apply_filters)
         self.ui.btn_add.clicked.connect(self.handle_add)
-        self.ui.btn_edit.clicked.connect(self.handle_edit)
         self.ui.btn_delete.clicked.connect(self.handle_delete)
         self.ui.btn_orders.clicked.connect(self.open_orders_window)
 
@@ -68,7 +66,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         # Устанавливаем заголовок окна
         self.setWindowTitle("Каталог товаров")
         
-        # Инициализируем состояние кнопок редактирования/удаления
+        # Инициализируем состояние кнопки удаления
         self.update_buttons_state()
 
     def _fill_suppliers(self):
@@ -155,7 +153,6 @@ class ProductsWindow(QtWidgets.QMainWindow):
             card = self.create_product_card(p)
             self.ui.cards_layout.addWidget(card)
 
-    # user_interface/products_window.py (обновленный метод create_product_card)
     def create_product_card(self, product):
         """Создает карточку товара с фото слева и информацией справа"""
         card_widget = QtWidgets.QWidget()
@@ -208,9 +205,8 @@ class ProductsWindow(QtWidgets.QMainWindow):
             if candidate and os.path.exists(candidate):
                 img_path = candidate
         
-        # fallback: всегда использовать заглушку images/Icon.png
         if not img_path:
-            placeholder = os.path.join(PROJECT_DIR, "images", "Icon.JPG")
+            placeholder = os.path.join(PROJECT_DIR, "images", "picture.png")
             img_path = placeholder if os.path.exists(placeholder) else None
         
         if img_path:
@@ -222,7 +218,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
                 photo_label.setPixmap(scaled_pix)
             else:
                 # Если изображение не загрузилось, показываем текст
-                photo_label.setText("🖼️ Нет фото")
+                photo_label.setText("Нет фото")
                 photo_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         
         photo_layout.addWidget(photo_label)
@@ -234,7 +230,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         info_layout.setSpacing(5)
         
         # Название товара
-        name_label = QtWidgets.QLabel(f"🏷️ {product.name or 'Без названия'}")
+        name_label = QtWidgets.QLabel(f"{product.name or 'Без названия'}")
         name_label.setStyleSheet("font-weight: bold; font-size: 11pt;")
         info_layout.addWidget(name_label)
         
@@ -250,17 +246,17 @@ class ProductsWindow(QtWidgets.QMainWindow):
         
         # Категория
         if product.category and hasattr(product.category, 'name'):
-            category_label = QtWidgets.QLabel(f"📂 {product.category.name}")
+            category_label = QtWidgets.QLabel(f"{product.category.name}")
             left_details.addWidget(category_label)
         
         # Производитель
         if product.manufacturer:
-            manufacturer_label = QtWidgets.QLabel(f"🏭 {product.manufacturer.name}")
+            manufacturer_label = QtWidgets.QLabel(f"{product.manufacturer.name}")
             left_details.addWidget(manufacturer_label)
         
         # Поставщик
         if product.supplier:
-            supplier_label = QtWidgets.QLabel(f"🚚 {product.supplier.name}")
+            supplier_label = QtWidgets.QLabel(f"{product.supplier.name}")
             left_details.addWidget(supplier_label)
         
         details_layout.addLayout(left_details)
@@ -277,7 +273,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
             final_price = base_price * (1 - discount / 100)
             price_text = f"""
                 <div style='font-size: 8pt; color: #666666;'>
-                    💰 Цена:
+                    Цена:
                 </div>
                 <div style='text-decoration: line-through; color: red; font-size: 8pt;'>
                     {base_price:.2f} ₽
@@ -289,7 +285,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         else:
             price_text = f"""
                 <div style='font-size: 8pt; color: #666666;'>
-                    💰 Цена:
+                    Цена:
                 </div>
                 <div style='font-size: 10pt; font-weight: bold;'>
                     {base_price:.2f} ₽
@@ -305,15 +301,15 @@ class ProductsWindow(QtWidgets.QMainWindow):
             discount_color = "#FF0000"  # Красный для скидки
             if discount > 15:
                 discount_color = "#2E8B57"  # Зеленый для большой скидки
-            discount_label = QtWidgets.QLabel(f"🎯 {discount:.1f}%")
+            discount_label = QtWidgets.QLabel(f"{discount:.1f}%")
             discount_label.setStyleSheet(f"color: {discount_color}; font-weight: bold;")
             right_details.addWidget(discount_label)
         
         # Количество
         quantity = product.quantity or 0
-        quantity_emoji = "📦"
+        quantity_emoji = ""
         if quantity == 0:
-            quantity_emoji = "⛔"
+            quantity_emoji = ""
             quantity_label = QtWidgets.QLabel(f"{quantity_emoji} {quantity}")
             quantity_label.setStyleSheet("color: #0000FF; font-weight: bold;")
         else:
@@ -327,7 +323,7 @@ class ProductsWindow(QtWidgets.QMainWindow):
         
         # Описание (если есть)
         if product.description:
-            description_label = QtWidgets.QLabel(f"📝 {product.description[:100] + '...' if len(product.description) > 100 else product.description}")
+            description_label = QtWidgets.QLabel(f"{product.description[:100] + '...' if len(product.description) > 100 else product.description}")
             description_label.setStyleSheet("color: #666666; font-size: 8pt;")
             description_label.setWordWrap(True)
             info_layout.addWidget(description_label)
@@ -339,9 +335,32 @@ class ProductsWindow(QtWidgets.QMainWindow):
         main_layout.addWidget(info_widget)
         
         # Событие клика для выбора карточки
-        card_widget.mousePressEvent = lambda e, card=card_widget: self.select_card(card)
+        card_widget.mousePressEvent = lambda e, card=card_widget: self.handle_card_click(e, card)
         
         return card_widget
+
+    def handle_card_click(self, event, card):
+        """Обработчик кликов по карточке"""
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            # Одинарный клик - выделение карточки
+            self.select_card(card)
+            
+            # Если двойной клик - редактирование (только для администратора)
+            if event.type() == QtCore.QEvent.Type.MouseButtonDblClick and self.role_name == "Администратор":
+                self.handle_card_double_click(card)
+    
+    def handle_card_double_click(self, card):
+        """Редактирование товара по двойному клику"""
+        if not card:
+            return
+        
+        try:
+            pid = card.property("product_id")
+            if pid:
+                self.open_edit(pid)
+        except (ValueError, AttributeError) as e:
+            QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось получить ID товара: {str(e)}")
+            print(f"Error parsing product ID: {e}")
 
     def select_card(self, card):
         """Выделяет карточку (меняет фон на акцентный) и снимает выделение с других"""
@@ -362,15 +381,13 @@ class ProductsWindow(QtWidgets.QMainWindow):
         self.update_buttons_state()
 
     def update_buttons_state(self):
-        """Активирует/деактивирует кнопки редактирования и удаления"""
+        """Активирует/деактивирует кнопку удаления"""
         has_selection = self._selected_card is not None
         
-        # Включаем кнопки только если есть выделение и пользователь администратор
+        # Включаем кнопку удаления только если есть выделение и пользователь администратор
         if has_selection and self.role_name == "Администратор":
-            self.ui.btn_edit.setEnabled(True)
             self.ui.btn_delete.setEnabled(True)
         else:
-            self.ui.btn_edit.setEnabled(False)
             self.ui.btn_delete.setEnabled(False)
 
     def handle_add(self):
@@ -384,18 +401,6 @@ class ProductsWindow(QtWidgets.QMainWindow):
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось открыть окно редактирования: {str(e)}")
             print(f"Error opening edit window: {e}")  # Для отладки
-
-    def handle_edit(self):
-        if not self._selected_card:
-            QtWidgets.QMessageBox.warning(self, "Предупреждение", "Выберите товар для редактирования")
-            return
-        
-        try:
-            pid = self._selected_card.property("product_id")
-            self.open_edit(pid)
-        except (ValueError, AttributeError) as e:
-            QtWidgets.QMessageBox.critical(self, "Ошибка", f"Не удалось получить ID товара: {str(e)}")
-            print(f"Error parsing product ID: {e}")
 
     def open_edit(self, product_id: int):
         if self._edit_window and self._edit_window.isVisible():

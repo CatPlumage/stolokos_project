@@ -151,12 +151,8 @@ class Ui_ProductsWindow:
         self.btn_add = QtWidgets.QPushButton("Добавить товар", self.centralwidget)
         self.btn_add.setGeometry(20, 650, 140, 30)
 
-        self.btn_edit = QtWidgets.QPushButton("Редактировать", self.centralwidget)
-        self.btn_edit.setGeometry(170, 650, 140, 30)
-        self.btn_edit.setEnabled(False)
-
         self.btn_delete = QtWidgets.QPushButton("Удалить", self.centralwidget)
-        self.btn_delete.setGeometry(320, 650, 140, 30)
+        self.btn_delete.setGeometry(170, 650, 140, 30)  # Сдвинуто влево
         self.btn_delete.setEnabled(False)
 
         # === КНОПКА "СПИСОК ЗАКАЗОВ" ===

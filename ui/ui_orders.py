@@ -159,46 +159,20 @@ class Ui_OrdersWindow:
         self.filter_group = QtWidgets.QGroupBox("Фильтры", self.centralwidget)
         self.filter_group.setGeometry(10, 40, 1380, 100)
         
-        # Status filter
-        self.label_status = QtWidgets.QLabel("Статус:", self.filter_group)
-        self.label_status.setGeometry(10, 25, 50, 25)
-        
-        self.status_combo = QtWidgets.QComboBox(self.filter_group)
-        self.status_combo.setGeometry(70, 25, 150, 25)
-        self.status_combo.addItem("Все статусы")
-        
-        # Date from
-        self.label_date_from = QtWidgets.QLabel("С:", self.filter_group)
-        self.label_date_from.setGeometry(240, 25, 20, 25)
-        
-        self.date_from = QtWidgets.QDateEdit(self.filter_group)
-        self.date_from.setGeometry(260, 25, 120, 25)
-        self.date_from.setCalendarPopup(True)
-        self.date_from.setDate(QtCore.QDate.currentDate().addMonths(-1))
-        
-        # Date to
-        self.label_date_to = QtWidgets.QLabel("По:", self.filter_group)
-        self.label_date_to.setGeometry(400, 25, 30, 25)
-        
-        self.date_to = QtWidgets.QDateEdit(self.filter_group)
-        self.date_to.setGeometry(430, 25, 120, 25)
-        self.date_to.setCalendarPopup(True)
-        self.date_to.setDate(QtCore.QDate.currentDate())
-        
         # Client search
         self.label_client = QtWidgets.QLabel("Клиент:", self.filter_group)
-        self.label_client.setGeometry(10, 60, 50, 25)
+        self.label_client.setGeometry(10, 40, 50, 25)
         
         self.client_search = QtWidgets.QLineEdit(self.filter_group)
-        self.client_search.setGeometry(70, 60, 300, 25)
+        self.client_search.setGeometry(70, 40, 300, 25)
         self.client_search.setPlaceholderText("Поиск по имени клиента...")
         
         # Apply/Reset buttons
         self.btn_apply = QtWidgets.QPushButton("Применить фильтры", self.filter_group)
-        self.btn_apply.setGeometry(400, 60, 140, 25)
+        self.btn_apply.setGeometry(400, 40, 140, 25)
         
         self.btn_reset = QtWidgets.QPushButton("Сбросить", self.filter_group)
-        self.btn_reset.setGeometry(550, 60, 100, 25)
+        self.btn_reset.setGeometry(550, 40, 100, 25)
         
         # Button panel
         self.btn_refresh = QtWidgets.QPushButton("Обновить", self.centralwidget)
@@ -208,17 +182,13 @@ class Ui_OrdersWindow:
         self.btn_add = QtWidgets.QPushButton("Добавить заказ", self.centralwidget)
         self.btn_add.setGeometry(120, 150, 140, 30)
         
-        self.btn_edit = QtWidgets.QPushButton("Редактировать заказ", self.centralwidget)
-        self.btn_edit.setGeometry(270, 150, 140, 30)
-        self.btn_edit.setEnabled(False)
-        
         self.btn_delete = QtWidgets.QPushButton("Удалить заказ", self.centralwidget)
-        self.btn_delete.setGeometry(420, 150, 140, 30)
+        self.btn_delete.setGeometry(270, 150, 140, 30)  # Сдвинуто на место редактирования
         self.btn_delete.setEnabled(False)
         
         # Кнопка просмотра деталей
         self.btn_view_details = QtWidgets.QPushButton("Просмотреть детали", self.centralwidget)
-        self.btn_view_details.setGeometry(570, 150, 140, 30)
+        self.btn_view_details.setGeometry(420, 150, 140, 30)  # Сдвинуто на место удаления
         self.btn_view_details.setEnabled(False)
         
         # Заменяем таблицу на ScrollArea для карточек
